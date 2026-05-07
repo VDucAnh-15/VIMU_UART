@@ -44,6 +44,7 @@ uint8_t vimu_uart_receive_frame_bytes(USART_TypeDef *UART,
                                       uint8_t *data,
                                       uint16_t *length,
                                       uint16_t max_length);
+void vimu_uart_rx_callback(USART_TypeDef *UART, uint8_t rxByte);
 
 
 #ifdef __cplusplus

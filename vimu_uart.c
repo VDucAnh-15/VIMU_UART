@@ -65,6 +65,12 @@ void vimu_uart_send_bytes(USART_TypeDef *UART, const uint8_t *data, uint16_t len
 	UARTx_SendBytes(UART, data, length);
 }
 
+__weak void vimu_uart_rx_callback(USART_TypeDef *UART, uint8_t rxByte)
+{
+	(void)UART;
+	(void)rxByte;
+}
+
 uint8_t vimu_uart_receive_frame_bytes(USART_TypeDef *UART,
 									  uint8_t *data,
 									  uint16_t *length,
@@ -330,6 +336,7 @@ static void UARTx_HandleRxInterrupt(UARTx_e Ux, USART_TypeDef *UART)
 		UARTx_rx_flag[Ux] = 0U;
 	}
 
+	vimu_uart_rx_callback(UART, rxByte);
 	UARTx_PushFrameByte(Ux, rxByte);
 }
 
@@ -538,8 +545,6 @@ void UARTx_SendData(USART_TypeDef *UART, const char *str, va_list args)
 					}while(*(++temp_str));
 					
 					continue;
-					
-					break;
 				}
 				case 'd':
 				{
@@ -555,8 +560,6 @@ void UARTx_SendData(USART_TypeDef *UART, const char *str, va_list args)
 					} while (*(++ptr));
 					
 					continue;
-					
-					break;
 				}
 				case 'f':
 				{
@@ -571,8 +574,6 @@ void UARTx_SendData(USART_TypeDef *UART, const char *str, va_list args)
 					}while(*(++ptr));
 					
 					continue;
-					
-					break;
 				}
 			}
 		}
