@@ -15,8 +15,7 @@
  *   100Hz: vimu_timer_init(719, 999)   => 72MHz / (720 * 1000) = 100Hz
  */
 void vimu_timer_init(uint16_t psc, uint16_t pd);
+uint32_t vimu_timer_get_tick(void);
+void vimu_timer_tick_callback(void);
 void delay_ms(uint32_t ms);
-
-
-
 #endif /* _VIMU_TIMER_H_ */

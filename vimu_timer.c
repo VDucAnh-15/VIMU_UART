@@ -2,9 +2,10 @@
 #include "stm32f10x_rcc.h"
 
 static volatile uint32_t vimu_timer_tick = 0U;
-static uint32_t vimu_timer_tick_us = 1000U;
 
-
+__weak void vimu_timer_tick_callback(void)
+{
+}
 
 /**
  * @brief Initialize TIM4 with custom Period and Prescaler
@@ -37,9 +38,19 @@ void vimu_timer_init(uint16_t psc, uint16_t pd)
     TIM_Cmd(TIM4, ENABLE);
 }
 
+uint32_t vimu_timer_get_tick(void)
+{
+    return vimu_timer_tick;
+}
+
 void delay_ms(uint32_t ms)
 {
+    uint32_t startTick;
 
+    startTick = vimu_timer_get_tick();
+    while ((vimu_timer_get_tick() - startTick) < ms)
+    {
+    }
 }
 
 void TIM4_IRQHandler(void)
@@ -47,7 +58,7 @@ void TIM4_IRQHandler(void)
     if (TIM_GetITStatus(TIM4, TIM_IT_Update) != RESET)
     {
         TIM_ClearITPendingBit(TIM4, TIM_IT_Update);
-
+        vimu_timer_tick++;
+        vimu_timer_tick_callback();
     }
 }
-

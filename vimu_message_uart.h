@@ -121,7 +121,7 @@ typedef struct
     uint16_t crc;
 } frame_Message_t;
 
-uint16_t Message_Create_Frame(frame_Message_t frameIn, uint8_t *frameOutBytes);
+uint16_t Message_Create_Frame(const frame_Message_t *frameIn, uint8_t *frameOutBytes);
 uint8_t Message_Detect_Frame(const uint8_t *frameInBytes, frame_Message_t *frameOut);
 uint16_t Check_Sum(const uint8_t *buf, uint16_t len);
 

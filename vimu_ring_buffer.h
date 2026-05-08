@@ -2,7 +2,6 @@
 #define _VIMU_RING_BUFFER_H_
 
 #include <stdint.h>
-#include <stdio.h>
 
 typedef enum
 {
@@ -27,6 +26,10 @@ void vimu_ring_buffer_clear(vimu_ring_buffer_t *ringBuffer);
 uint8_t vimu_ring_buffer_put(vimu_ring_buffer_t *ringBuffer, uint8_t data);
 uint8_t vimu_ring_buffer_get(vimu_ring_buffer_t *ringBuffer, uint8_t *data);
 uint16_t vimu_ring_buffer_available(const vimu_ring_buffer_t *ringBuffer);
+uint16_t vimu_ring_buffer_capacity(const vimu_ring_buffer_t *ringBuffer);
+uint16_t vimu_ring_buffer_free_space(const vimu_ring_buffer_t *ringBuffer);
+uint16_t vimu_ring_buffer_write(vimu_ring_buffer_t *ringBuffer, const uint8_t *data, uint16_t length);
+uint16_t vimu_ring_buffer_read(vimu_ring_buffer_t *ringBuffer, uint8_t *data, uint16_t length);
 uint8_t vimu_ring_buffer_is_empty(const vimu_ring_buffer_t *ringBuffer);
 uint8_t vimu_ring_buffer_is_full(const vimu_ring_buffer_t *ringBuffer);
 

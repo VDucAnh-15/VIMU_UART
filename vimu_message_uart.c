@@ -5,39 +5,39 @@ static uint16_t Message_Bytes_To_Uint16(uint8_t low_byte, uint8_t high_byte)
     return (uint16_t)((uint16_t)low_byte | ((uint16_t)high_byte << 8));
 }
 
-uint16_t Message_Create_Frame(frame_Message_t frameIn, uint8_t *frameOutBytes)
+uint16_t Message_Create_Frame(const frame_Message_t *frameIn, uint8_t *frameOutBytes)
 {
     uint16_t idx;
     uint16_t crc;
 
-    if (frameOutBytes == 0)
+    if ((frameIn == 0) || (frameOutBytes == 0))
     {
         return 0;
     }
 
-    if (frameIn.lengthData > UART_PROTO_MAX_DATA_LEN)
+    if (frameIn->lengthData > UART_PROTO_MAX_DATA_LEN)
     {
         return 0;
     }
 
     frameOutBytes[0] = UART_PROTO_START_FRAME_1;
     frameOutBytes[1] = UART_PROTO_START_FRAME_2;
-    frameOutBytes[2] = frameIn.typeMessage;
-    frameOutBytes[3] = frameIn.cmdCode;
-    frameOutBytes[4] = (uint8_t)(frameIn.lengthData & 0xFFU);
-    frameOutBytes[5] = (uint8_t)((frameIn.lengthData >> 8) & 0xFFU);
+    frameOutBytes[2] = frameIn->typeMessage;
+    frameOutBytes[3] = frameIn->cmdCode;
+    frameOutBytes[4] = (uint8_t)(frameIn->lengthData & 0xFFU);
+    frameOutBytes[5] = (uint8_t)((frameIn->lengthData >> 8) & 0xFFU);
 
-    for (idx = 0; idx < frameIn.lengthData; idx++)
+    for (idx = 0; idx < frameIn->lengthData; idx++)
     {
-        frameOutBytes[UART_PROTO_HEADER_SIZE + idx] = frameIn.data[idx];
+        frameOutBytes[UART_PROTO_HEADER_SIZE + idx] = frameIn->data[idx];
     }
 
-    crc = Check_Sum(frameOutBytes, (uint16_t)(UART_PROTO_HEADER_SIZE + frameIn.lengthData));
+    crc = Check_Sum(frameOutBytes, (uint16_t)(UART_PROTO_HEADER_SIZE + frameIn->lengthData));
 
-    frameOutBytes[UART_PROTO_HEADER_SIZE + frameIn.lengthData] = (uint8_t)(crc & 0xFFU);
-    frameOutBytes[UART_PROTO_HEADER_SIZE + frameIn.lengthData + 1U] = (uint8_t)((crc >> 8) & 0xFFU);
+    frameOutBytes[UART_PROTO_HEADER_SIZE + frameIn->lengthData] = (uint8_t)(crc & 0xFFU);
+    frameOutBytes[UART_PROTO_HEADER_SIZE + frameIn->lengthData + 1U] = (uint8_t)((crc >> 8) & 0xFFU);
 
-    return (uint16_t)(UART_PROTO_FIXED_SIZE + frameIn.lengthData);
+    return (uint16_t)(UART_PROTO_FIXED_SIZE + frameIn->lengthData);
 }
 
 uint8_t Message_Detect_Frame(const uint8_t *frameInBytes, frame_Message_t *frameOut)
