@@ -1,5 +1,6 @@
 #include "stm32f10x.h"
 #include "vimu_app.h"
+#include "vimu_i2c_slave.h"
 #include "vimu_timer.h"
 #include "vimu_uart.h"
 
@@ -7,7 +8,8 @@ int main(void)
 {
     vimu_app_init();
     vimu_uart_init(115200U, 0U);
-    vimu_timer_init(VIMU_TIMER_PRESCALER_50HZ, VIMU_TIMER_PERIOD_50HZ);
+    I2C_Slave_Init(VIMU_I2C_DEFAULT_ADDRESS);
+    vimu_timer_init_hz(VIMU_TIMER_FILL_RATE_HZ);
 
     while (1)
     {

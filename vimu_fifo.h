@@ -27,6 +27,7 @@ uint8_t vimu_fifo_is_empty(const vimu_fifo_t *fifo);
 uint8_t vimu_fifo_is_full(const vimu_fifo_t *fifo);
 uint8_t vimu_fifo_push(vimu_fifo_t *fifo, const uint8_t *sampleBytes);
 uint8_t vimu_fifo_pop(vimu_fifo_t *fifo, vimu_sample_t *sampleOut);
+uint8_t vimu_fifo_peek(const vimu_fifo_t *fifo, vimu_sample_t *sampleOut);
 uint8_t vimu_fifo_sample_count(const vimu_fifo_t *fifo);
 
 #endif /* VIMU_FIFO_H */

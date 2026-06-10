@@ -107,6 +107,26 @@ uint8_t vimu_fifo_pop(vimu_fifo_t *fifo, vimu_sample_t *sampleOut)
     return 1U;
 }
 
+uint8_t vimu_fifo_peek(const vimu_fifo_t *fifo, vimu_sample_t *sampleOut)
+{
+    uint8_t idx;
+    uint8_t sampleIndex;
+
+    if ((fifo == 0) || (sampleOut == 0) || (vimu_fifo_is_empty(fifo) != 0U))
+    {
+        return 0U;
+    }
+
+    sampleIndex = fifo->tail;
+
+    for (idx = 0U; idx < VIMU_UART_SAMPLE_SIZE; idx++)
+    {
+        sampleOut->bytes[idx] = fifo->buffer[sampleIndex].bytes[idx];
+    }
+
+    return 1U;
+}
+
 uint8_t vimu_fifo_sample_count(const vimu_fifo_t *fifo)
 {
     if (fifo == 0)
