@@ -256,6 +256,11 @@ static void vimu_app_prepare_fifo_snapshot(void)
 
 static void vimu_app_raise_fifo_ready_irq(void)
 {
+    if (g_vimuApp.fifoBlockReady != 0U)
+    {
+        return;
+    }
+
     if (vimu_fifo_is_full(&g_vimuApp.fifo) == 0U)
     {
         return;
@@ -279,6 +284,13 @@ static void vimu_app_release_fifo_block(void)
 
     g_vimuApp.fifoBlockReady = 0U;
     vimu_app_set_irq_signal(0U);
+
+    if (vimu_fifo_is_full(&g_vimuApp.fifo) != 0U)
+    {
+        vimu_app_raise_fifo_ready_irq();
+        return;
+    }
+
     vimu_app_update_low_watermark();
     vimu_uart_send_status_push();
 }

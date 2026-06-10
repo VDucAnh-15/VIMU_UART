@@ -26,7 +26,10 @@ void I2C_Slave_Init(uint8_t address)
         return;
     }
 
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB | VIMU_I2C_IRQ_GPIO_CLK, ENABLE);
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB |
+                           RCC_APB2Periph_AFIO |
+                           VIMU_I2C_IRQ_GPIO_CLK,
+                           ENABLE);
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_I2C1, ENABLE);
 
     gpioInit.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_7;
