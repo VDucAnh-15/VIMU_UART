@@ -10,7 +10,7 @@
 #define UART_PROTO_START_FRAME_2      0x55
 #define LENGTH_DEFAULT                0x00
 #define CRC_DEFAULT                   0x0000
-#define UART_PROTO_MAX_DATA_LEN       256U
+#define UART_PROTO_MAX_DATA_LEN       1024U
 #define UART_PROTO_HEADER_SIZE        6U
 #define UART_PROTO_CRC_SIZE           2U
 #define UART_PROTO_FIXED_SIZE         (UART_PROTO_HEADER_SIZE + UART_PROTO_CRC_SIZE)
@@ -63,7 +63,7 @@ typedef enum
     VIMU_BUF_2S    = 0x02,
     VIMU_BUF_3S    = 0x03,
     VIMU_BUF_4S    = 0x04,
-    VIMU_BUF_FULL  = 0x05 // >= 5s
+    VIMU_BUF_FULL  = 0x05 // > 4s
 } vimu_buf_level_t;
 
 /* =========================
@@ -95,6 +95,12 @@ typedef enum
     VIMU_FLAG_I2C_ENABLE = (1U << 3),
     VIMU_FLAG_RING_EMPTY = (1U << 4)
 } vimu_status_flag_t;
+
+/*
+ * Status payload:
+ * [0] state, [1] buffer level, [2] flags,
+ * [3..4] ring samples LE, [5..6] free ring samples LE.
+ */
 
 /* =========================
  * UART parser state machine

@@ -118,23 +118,36 @@ void I2C1_ER_IRQHandler(void)
 
     if ((sr1 & I2C_SR1_AF) != 0U)
     {
+        /* NACK from master – normal end of a slave-transmitter session. */
         I2C1->SR1 &= (uint16_t)(~I2C_SR1_AF);
         s_transmitter = 0U;
     }
 
     if ((sr1 & I2C_SR1_OVR) != 0U)
     {
-        volatile uint8_t dummyData;
+        volatile uint8_t  dummyData;
         volatile uint16_t dummyStatus;
 
-        dummyData = (uint8_t)I2C1->DR;
+        dummyData   = (uint8_t)I2C1->DR;
         dummyStatus = I2C1->SR1;
         (void)dummyData;
         (void)dummyStatus;
     }
 
-    if ((sr1 & I2C_SR1_BERR) != 0U)
+    if ((sr1 & (I2C_SR1_BERR | I2C_SR1_ARLO)) != 0U)
     {
-        I2C1->SR1 &= (uint16_t)(~I2C_SR1_BERR);
+        /* Bus error or arbitration loss: the master aborted mid-transaction
+         * (e.g. ESP32 I2C timeout).  Clearing the flag alone is not enough –
+         * the STM32F1 I2C peripheral can be left with BUSY stuck high.
+         * A PE-off / PE-on cycle resets the state machine and releases the bus. */
+        I2C1->SR1 &= (uint16_t)(~(I2C_SR1_BERR | I2C_SR1_ARLO));
+
+        I2C1->CR1 &= (uint16_t)(~I2C_CR1_PE);
+        __NOP(); __NOP(); __NOP(); __NOP();
+        I2C1->CR1 |= I2C_CR1_PE;
+        I2C1->CR1 |= I2C_CR1_ACK;
+
+        s_transmitter = 0U;
+        I2C_Slave_OnError();
     }
 }
