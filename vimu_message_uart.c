@@ -5,6 +5,8 @@ static uint16_t Message_Bytes_To_Uint16(uint8_t low_byte, uint8_t high_byte)
     return (uint16_t)((uint16_t)low_byte | ((uint16_t)high_byte << 8));
 }
 
+
+
 uint16_t Message_Create_Frame(const frame_Message_t *frameIn, uint8_t *frameOutBytes)
 {
     uint16_t idx;
