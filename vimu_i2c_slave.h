@@ -75,6 +75,7 @@
 /* ── Driver API ─────────────────────────────────────────────────────── */
 void    I2C_Slave_Init(uint8_t address);
 void    I2C_Slave_SetIrq(uint8_t active);
+void    I2C_Slave_Service(void);
 
 /* Callbacks implemented in vimu_app.c */
 void    I2C_Slave_OnAddressed(uint8_t isTransmitter);

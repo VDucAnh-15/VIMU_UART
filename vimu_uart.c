@@ -1,6 +1,9 @@
 #include "vimu_uart.h"
+#include "vimu_timer.h"
 #include <stdio.h>
 #include <stdarg.h>
+
+#define UART_FRAME_GAP_TIMEOUT_TICKS 5U
 
 UART_TypedefStruct UART1;
 UART_TypedefStruct UART2;
@@ -20,6 +23,7 @@ typedef struct
 	uint8_t startMatched;
 	uint16_t lengthData;
 	uint16_t payloadIndex;
+	uint32_t lastRxTick;
 	uint8_t frameBytes[UART_PROTO_MAX_FRAME_LEN];
 } UART_FrameReceiver_t;
 
@@ -179,6 +183,7 @@ static void UARTx_ResetFrameReceiver(UARTx_e Ux)
 	UARTx_frameReceiver[Ux].startMatched = 0U;
 	UARTx_frameReceiver[Ux].lengthData = 0U;
 	UARTx_frameReceiver[Ux].payloadIndex = 0U;
+	UARTx_frameReceiver[Ux].lastRxTick = vimu_timer_get_tick();
 }
 
 static void UARTx_ClearCompletedFrame(UARTx_e Ux)
@@ -211,8 +216,20 @@ static void UARTx_StoreCompletedFrame(UARTx_e Ux)
 static void UARTx_PushFrameByte(UARTx_e Ux, uint8_t rxByte)
 {
 	UART_FrameReceiver_t *receiver;
+	uint32_t nowTick;
 
 	receiver = &UARTx_frameReceiver[Ux];
+	nowTick = vimu_timer_get_tick();
+
+	if (((receiver->state != VIMU_UART_RX_WAIT_START_FRAME) ||
+		 (receiver->startMatched != 0U)) &&
+		((uint32_t)(nowTick - receiver->lastRxTick) > UART_FRAME_GAP_TIMEOUT_TICKS))
+	{
+		UARTx_ResetFrameReceiver(Ux);
+	}
+
+	receiver = &UARTx_frameReceiver[Ux];
+	receiver->lastRxTick = nowTick;
 
 	switch (receiver->state)
 	{
@@ -311,14 +328,34 @@ static void UARTx_PushFrameByte(UARTx_e Ux, uint8_t rxByte)
 
 static void UARTx_HandleRxInterrupt(UARTx_e Ux, USART_TypeDef *UART)
 {
+	uint16_t status;
 	uint8_t rxByte;
 
-	if (USART_GetITStatus(UART, USART_IT_RXNE) == RESET)
+	/*
+	 * RXNEIE also raises the USART IRQ for ORE.  The old handler returned when
+	 * RXNE was clear, leaving ORE asserted forever.  Because USART1 has the
+	 * highest priority this became an interrupt storm: the main loop, replies
+	 * and even a new HANDSHAKE all stopped permanently.
+	 *
+	 * Read SR followed by DR to clear PE/FE/NE/ORE as required by STM32F1.  A
+	 * byte received with any of these errors is discarded and the frame parser
+	 * is reset; the PC can then retry the complete, CRC-protected frame.
+	 */
+	status = UART->SR;
+	if ((status & (USART_SR_PE | USART_SR_FE | USART_SR_NE | USART_SR_ORE)) != 0U)
 	{
+		rxByte = (uint8_t)UART->DR;
+		(void)rxByte;
+		UARTx_id[Ux] = 0U;
+		UARTx_rx_flag[Ux] = 0U;
+		UARTx_timeout[Ux] = 0U;
+		UARTx_ResetFrameReceiver(Ux);
 		return;
 	}
 
-	rxByte = (uint8_t)USART_ReceiveData(UART);
+	if ((status & USART_SR_RXNE) == 0U) return;
+
+	rxByte = (uint8_t)UART->DR;
 
 	UARTx_timeout[Ux] = 0;
 	if (UARTx_rx_flag[Ux] == 0U)
@@ -326,7 +363,16 @@ static void UARTx_HandleRxInterrupt(UARTx_e Ux, USART_TypeDef *UART)
 		UARTx_rx_flag[Ux] = 1U;
 	}
 
-	if (UARTx_id[Ux] < UART_PROTO_MAX_FRAME_LEN)
+	vimu_uart_rx_callback(UART, rxByte);
+
+	if (Ux == U1)
+	{
+		/* USART1 is the framed VIMU link.  Do not also copy every byte into
+		 * the legacy text-scan buffer; that duplicate ISR work increases the
+		 * chance of overrun during long unattended transfers. */
+		UARTx_PushFrameByte(Ux, rxByte);
+	}
+	else if (UARTx_id[Ux] < UART_PROTO_MAX_FRAME_LEN)
 	{
 		UARTx_dataReceived[Ux][UARTx_id[Ux]++] = rxByte;
 	}
@@ -335,9 +381,6 @@ static void UARTx_HandleRxInterrupt(UARTx_e Ux, USART_TypeDef *UART)
 		UARTx_id[Ux] = 0U;
 		UARTx_rx_flag[Ux] = 0U;
 	}
-
-	vimu_uart_rx_callback(UART, rxByte);
-	UARTx_PushFrameByte(Ux, rxByte);
 }
 
 /**

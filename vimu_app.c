@@ -19,6 +19,8 @@ typedef struct
     volatile uint8_t   pendingI2cCommand;
     volatile uint8_t   i2cCommandPending;
     volatile uint16_t  pendingFillTicks;
+    uint16_t           lastDataSequence;
+    uint8_t            lastDataSequenceValid;
 } vimu_uart_app_t;
 
 static vimu_uart_app_t g_vimuApp;
@@ -167,6 +169,7 @@ static void vimu_app_build_status_payload(uint8_t *payload)
     payload[4]   = (uint8_t)((ringSamples >> 8) & 0xFFU);
     payload[5]   = (uint8_t)(freeSamples & 0xFFU);
     payload[6]   = (uint8_t)((freeSamples >> 8) & 0xFFU);
+    payload[7]   = VIMU_FIRMWARE_PROTOCOL_VERSION;
 }
 
 /* ── IRQ control ────────────────────────────────────────────────────── */
@@ -354,6 +357,8 @@ static void vimu_handle_frame(const frame_Message_t *rxFrame)
 {
     uint16_t sampleCount;
     uint16_t writtenCount;
+    uint16_t dataOffset;
+    uint16_t dataSequence;
 
     if (rxFrame == 0) return;
 
@@ -382,25 +387,52 @@ static void vimu_handle_frame(const frame_Message_t *rxFrame)
             break;
 
         case VIMU_UART_CMD_NEW_DATA:
-            if ((rxFrame->lengthData == 0U) ||
-                ((rxFrame->lengthData % VIMU_UART_SAMPLE_SIZE) != 0U))
+            /*
+             * Reliable format: [sequence_le16][N * 6-byte samples].  A retry
+             * with the same sequence is ACKed without writing twice, which
+             * makes a lost ACK safe.  Keep accepting the legacy N*6 format
+             * for older tools, but only the sequenced format is idempotent.
+             */
+            dataOffset = 0U;
+            dataSequence = 0U;
+            if ((rxFrame->lengthData >= (2U + VIMU_UART_SAMPLE_SIZE)) &&
+                (((rxFrame->lengthData - 2U) % VIMU_UART_SAMPLE_SIZE) == 0U))
+            {
+                dataOffset = 2U;
+                dataSequence = (uint16_t)((uint16_t)rxFrame->data[0] |
+                                           ((uint16_t)rxFrame->data[1] << 8));
+                if ((g_vimuApp.lastDataSequenceValid != 0U) &&
+                    (dataSequence == g_vimuApp.lastDataSequence))
+                {
+                    vimu_uart_send_ack(rxFrame->cmdCode);
+                    break;
+                }
+            }
+            else if ((rxFrame->lengthData == 0U) ||
+                     ((rxFrame->lengthData % VIMU_UART_SAMPLE_SIZE) != 0U))
             {
                 vimu_uart_send_nack(rxFrame->cmdCode, VIMU_UART_ERR_BAD_LENGTH);
                 break;
             }
-            sampleCount = (uint16_t)(rxFrame->lengthData / VIMU_UART_SAMPLE_SIZE);
+            sampleCount = (uint16_t)((rxFrame->lengthData - dataOffset) /
+                                     VIMU_UART_SAMPLE_SIZE);
             if (sampleCount > vimu_app_free_sample_count())
             {
                 vimu_uart_send_nack(rxFrame->cmdCode, VIMU_UART_ERR_BUFFER_FULL);
                 break;
             }
             writtenCount = vimu_ring_buffer_write(&g_vimuApp.rxDataRing,
-                                                  rxFrame->data,
-                                                  rxFrame->lengthData);
-            if (writtenCount != rxFrame->lengthData)
+                                                  &rxFrame->data[dataOffset],
+                                                  (uint16_t)(rxFrame->lengthData - dataOffset));
+            if (writtenCount != (uint16_t)(rxFrame->lengthData - dataOffset))
             {
                 vimu_uart_send_nack(rxFrame->cmdCode, VIMU_UART_ERR_BUFFER_FULL);
                 break;
+            }
+            if (dataOffset != 0U)
+            {
+                g_vimuApp.lastDataSequence = dataSequence;
+                g_vimuApp.lastDataSequenceValid = 1U;
             }
             vimu_app_update_low_watermark();
             vimu_uart_send_ack(rxFrame->cmdCode);
@@ -486,6 +518,8 @@ void vimu_app_init(void)
     g_vimuApp.pendingI2cCommand       = 0U;
     g_vimuApp.i2cCommandPending       = 0U;
     g_vimuApp.pendingFillTicks        = 0U;
+    g_vimuApp.lastDataSequence        = 0U;
+    g_vimuApp.lastDataSequenceValid   = 0U;
 }
 
 void vimu_app_process_uart_frame(void)
@@ -715,15 +749,9 @@ uint8_t I2C_Slave_OnTxByte(void)
 
     if (g_i2cFifoReadActive != 0U)
     {
-        data = (uint8_t)g_i2cFifoSample[g_i2cFifoByteIdx];
-        g_i2cFifoByteIdx++;
-
         if (g_i2cFifoByteIdx >= VIMU_UART_SAMPLE_SIZE)
         {
             /* One sample fully transmitted – pre-load next if available */
-            g_i2cFifoByteIdx = 0U;
-
-            {
             vimu_sample_t next;
             if (vimu_fifo_pop(&g_vimuApp.fifo, &next) != 0U)
             {
@@ -733,12 +761,18 @@ uint8_t I2C_Slave_OnTxByte(void)
                 g_i2cFifoSample[3] = next.bytes[2];
                 g_i2cFifoSample[4] = next.bytes[5];
                 g_i2cFifoSample[5] = next.bytes[4];
+                g_i2cFifoByteIdx = 0U;
             }
             else
             {
                 g_i2cFifoReadActive = 0U;
             }
-            }
+        }
+
+        if (g_i2cFifoReadActive != 0U)
+        {
+            data = (uint8_t)g_i2cFifoSample[g_i2cFifoByteIdx];
+            g_i2cFifoByteIdx++;
         }
     }
     else
