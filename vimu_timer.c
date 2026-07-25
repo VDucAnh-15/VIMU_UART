@@ -48,8 +48,10 @@ void vimu_timer_init_raw(uint16_t psc, uint16_t pd)
 
     TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
     TIM_ITConfig(TIM2, TIM_IT_Update, ENABLE);
+    /* Kept below I2C1 (preempt 0-1, see vimu_i2c_slave.c) so a fill tick
+     * never delays an in-progress I2C transaction and stretches SCL. */
     NVIC_InitStructure.NVIC_IRQChannel = TIM2_IRQn;
-    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 2;
     NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
