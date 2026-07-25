@@ -5,6 +5,7 @@
 #include "vimu_timer.h"
 #include "vimu_uart.h"
 
+//DAV 
 /* ── App state ──────────────────────────────────────────────────────── */
 typedef struct
 {
@@ -583,6 +584,10 @@ void vimu_app_service_events(void)
 
 void vimu_timer_tick_callback(void)
 {
+    /* Independent of streaming state: a wedged I2C bus must be detected and
+     * recovered even while stopped, otherwise the next START never works. */
+    I2C_Slave_PollBusHealth();
+
     if (g_vimuApp.state != VIMU_STATE_RUNNING) return;
 
     if (g_vimuApp.pendingFillTicks < 0xFFFFU)

@@ -16,13 +16,18 @@
     * @brief 	This file contains all the functions prototypes for UART communication.
     *************************************************************************
 */
-typedef enum 
+/*
+ * Kept below I2C1 (preempt 0-1) and TIM2 (preempt 2, see vimu_timer.c) so a
+ * long UART RX burst can never delay the I2C slave ISR and stretch SCL for
+ * the ESP32 RTC-I2C master, which has no bus-recovery of its own.
+ */
+typedef enum
 {
-	UART1_Priority = 0x00,
+	UART1_Priority = 0x03,
 	UART2_Priority,
 	UART3_Priority,
 	TIM4_Priority
-	
+
 }NVIC_Priority;
 
 typedef struct 

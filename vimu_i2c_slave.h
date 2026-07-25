@@ -11,6 +11,11 @@
 /* I2C address: MMA8451 with SA0=1 */
 #define VIMU_I2C_DEFAULT_ADDRESS        0x1DU
 
+/* I2C1 pins (also used for GPIO bit-bang bus recovery) */
+#define VIMU_I2C_GPIO_PORT              GPIOB
+#define VIMU_I2C_SCL_GPIO_PIN           GPIO_Pin_6
+#define VIMU_I2C_SDA_GPIO_PIN           GPIO_Pin_7
+
 /* IRQ pin - active-high output to ESP32 */
 #define VIMU_I2C_IRQ_GPIO_CLK           RCC_APB2Periph_GPIOA
 #define VIMU_I2C_IRQ_GPIO_PORT          GPIOA
@@ -76,6 +81,16 @@
 void    I2C_Slave_Init(uint8_t address);
 void    I2C_Slave_SetIrq(uint8_t active);
 void    I2C_Slave_Service(void);
+
+/*
+ * Call once per fill tick (50 Hz, see vimu_timer_tick_callback in
+ * vimu_app.c). Detects a slave-side bus lockup - the ESP32 RTC-I2C master
+ * timing out and abandoning a transaction mid-byte without issuing STOP,
+ * which otherwise leaves I2C1 BUSY (and possibly SDA held low) forever with
+ * no error flag ever raised - and schedules the same recovery path used for
+ * fatal I2C errors.
+ */
+void    I2C_Slave_PollBusHealth(void);
 
 /* Callbacks implemented in vimu_app.c */
 void    I2C_Slave_OnAddressed(uint8_t isTransmitter);
